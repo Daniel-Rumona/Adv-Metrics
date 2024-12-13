@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   TextField,
@@ -8,8 +8,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  useTheme,
-  CircularProgress
+  CircularProgress,
+  useTheme
 } from '@mui/material'
 import { tokens } from '../../theme'
 import axios from 'axios'
@@ -18,83 +18,40 @@ const ChatInterface: React.FC = () => {
   const theme = useTheme()
   const colors = tokens(theme.palette.mode)
 
-  // State for chat messages and user input
   const [messages, setMessages] = useState<{ text: string; isUser: boolean }[]>(
-    () => {
-      // Load messages from local storage if available
-      const savedMessages = localStorage.getItem('chatMessages')
-      return savedMessages ? JSON.parse(savedMessages) : []
-    }
+    []
   )
   const [input, setInput] = useState('')
-  const [isBotTyping, setIsBotTyping] = useState(false) // Typing indicator
+  const [isBotTyping, setIsBotTyping] = useState(false)
 
-  // Azure OpenAI details
-  const azureOpenAIEndpoint =
-    'https://azureopenai4digitalanalytics.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-08-01-preview'
-  const apiKey =
-    '697VY3Dwt5nCOerCnnEBeh7gJ5o5WjWFUbP0bDbM6DThncGw6agmJQQJ99AKACfhMk5XJ3w3AAABACOGoniQ' // Replace with your Azure API key
-
-  // Save messages to local storage whenever they change
-  useEffect(() => {
-    localStorage.setItem('chatMessages', JSON.stringify(messages))
-  }, [messages])
-
-  // Function to handle sending a message
   const handleSendMessage = async () => {
     if (!input.trim()) return
 
-    // Add user's message to the chat
-    setMessages(prevMessages => [
-      ...prevMessages,
-      { text: input, isUser: true }
-    ])
-    const userMessage = input // Save the input message before clearing
+    setMessages(prev => [...prev, { text: input, isUser: true }])
+    const userMessage = input
     setInput('')
-
-    // Typing animation starts
     setIsBotTyping(true)
 
-    // Prepare the request body for Azure OpenAI
-    const requestBody = {
-      messages: [{ role: 'user', content: userMessage }],
-      max_tokens: 150,
-      temperature: 0.7,
-      top_p: 0.95
-    }
-
     try {
-      // Make a POST request to the Azure OpenAI endpoint
-      const response = await axios.post(azureOpenAIEndpoint, requestBody, {
-        headers: {
-          'Content-Type': 'application/json',
-          'api-key': apiKey
-        }
+      const response = await axios.post('/api/run-assistant', {
+        message: userMessage
       })
-
-      // Get the bot's response from Azure OpenAI
-      const botResponse =
-        response.data.choices[0].message.content || 'No response'
-
-      // Add the bot's response to the chat
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { text: botResponse, isUser: false }
-      ])
+      const assistantResponse = response.data.message
+      setMessages(prev => [...prev, { text: assistantResponse, isUser: false }])
     } catch (error) {
-      console.error('Error fetching response from Azure OpenAI:', error)
-
-      // Add an error message to the chat
-      setMessages(prevMessages => [
-        ...prevMessages,
-        { text: 'Error fetching response from Azure OpenAI.', isUser: false }
+      console.error('Error communicating with assistant:', error.message)
+      setMessages(prev => [
+        ...prev,
+        {
+          text: 'Error communicating with the assistant. Please try again.',
+          isUser: false
+        }
       ])
     } finally {
-      setIsBotTyping(false) // Stop typing animation
+      setIsBotTyping(false)
     }
   }
 
-  // Handle Enter key submission
   const handleKeyPress = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
@@ -112,7 +69,6 @@ const ChatInterface: React.FC = () => {
         padding: '20px'
       }}
     >
-      {/* Chat Display */}
       <Paper
         sx={{
           flex: 1,
@@ -146,8 +102,6 @@ const ChatInterface: React.FC = () => {
               </Paper>
             </ListItem>
           ))}
-
-          {/* Typing Animation */}
           {isBotTyping && (
             <ListItem
               sx={{
@@ -176,7 +130,6 @@ const ChatInterface: React.FC = () => {
         </List>
       </Paper>
 
-      {/* Input Section */}
       <Box sx={{ display: 'flex', gap: '10px' }}>
         <TextField
           variant='outlined'
@@ -184,7 +137,7 @@ const ChatInterface: React.FC = () => {
           placeholder='Type a message...'
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKeyPress} // Handle Enter key submission
+          onKeyDown={handleKeyPress}
           sx={{
             '& .MuiOutlinedInput-root': {
               backgroundColor: colors.primary[400],

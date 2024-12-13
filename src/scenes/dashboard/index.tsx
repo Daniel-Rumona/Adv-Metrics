@@ -20,7 +20,7 @@ const Dashboard: React.FC = () => {
   const summaryMetrics = mockData.dashboard.summaryMetrics
 
   const metricIcons: Record<string, React.ReactNode> = {
-    Revenue: (
+    'Sentiment Ration (+ve|-ve)': (
       <PointOfSaleIcon
         sx={{ color: colors.greenAccent[600], fontSize: '26px' }}
       />
@@ -33,7 +33,7 @@ const Dashboard: React.FC = () => {
     'Engagement Rate': (
       <TrafficIcon sx={{ color: colors.greenAccent[600], fontSize: '26px' }} />
     ),
-    'Bounce Rate': (
+    'Reputation Index': (
       <EmailIcon sx={{ color: colors.greenAccent[600], fontSize: '26px' }} />
     )
   }
