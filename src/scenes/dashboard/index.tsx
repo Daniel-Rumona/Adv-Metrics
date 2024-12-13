@@ -20,7 +20,7 @@ const Dashboard: React.FC = () => {
   const summaryMetrics = mockData.dashboard.summaryMetrics
 
   const metricIcons: Record<string, React.ReactNode> = {
-    'Sentiment Ration (+ve|-ve)': (
+    'Advertising Value Equivalent': (
       <PointOfSaleIcon
         sx={{ color: colors.greenAccent[600], fontSize: '26px' }}
       />
