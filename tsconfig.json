@@ -40,7 +40,7 @@
     },
     "include": [
       "src/**/*",                                     /* Include all source files. */
-      "api/**/*",                                     /* Include Vercel API folder for serverless functions. */
+      "src/api/**/*",                                     /* Include Vercel API folder for serverless functions. */
       "custom.d.ts"                                   /* Include custom type declarations. */
     ],
     "exclude": [

@@ -14,13 +14,16 @@ import {
 import { tokens } from '../../theme'
 import axios from 'axios'
 
+interface Message {
+  text: string
+  isUser: boolean
+}
+
 const ChatInterface: React.FC = () => {
   const theme = useTheme()
   const colors = tokens(theme.palette.mode)
 
-  const [messages, setMessages] = useState<{ text: string; isUser: boolean }[]>(
-    []
-  )
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isBotTyping, setIsBotTyping] = useState(false)
 
@@ -33,12 +36,21 @@ const ChatInterface: React.FC = () => {
     setIsBotTyping(true)
 
     try {
-      const response = await axios.post('/api/run-assistant', {
-        message: userMessage
+      // Call the assistant API
+      const response = await axios.post('/api/assistant', {
+        prompt: userMessage
       })
-      const assistantResponse = response.data.message
-      setMessages(prev => [...prev, { text: assistantResponse, isUser: false }])
-    } catch (error) {
+
+      // Ensure the backend returns a proper messages array
+      const assistantMessages = response.data.messages
+      setMessages(prev => [
+        ...prev,
+        ...assistantMessages.map((msg: { role: string; content: string }) => ({
+          text: msg.content,
+          isUser: msg.role === 'user'
+        }))
+      ])
+    } catch (error: any) {
       console.error('Error communicating with assistant:', error.message)
       setMessages(prev => [
         ...prev,
@@ -69,6 +81,7 @@ const ChatInterface: React.FC = () => {
         padding: '20px'
       }}
     >
+      {/* Chat History */}
       <Paper
         sx={{
           flex: 1,
@@ -130,6 +143,7 @@ const ChatInterface: React.FC = () => {
         </List>
       </Paper>
 
+      {/* Input Section */}
       <Box sx={{ display: 'flex', gap: '10px' }}>
         <TextField
           variant='outlined'

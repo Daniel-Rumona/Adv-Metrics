@@ -1,10 +1,10 @@
 export const mockData = {
   dashboard: {
     summaryMetrics: [
-      { metric: 'Advertising Value Equivalent', value: 6000 },
+      { metric: 'Sentiment Ratio(+ve|-ve)', value: 15 },
       { metric: 'Active Users', value: 8760 },
       { metric: 'Engagement Rate', value: 0.35 },
-      { metric: 'Reputation Index', value: 150031.2 }
+      { metric: 'Reputation Index', value: 0.45 }
     ]
   },
   mockCampaignActivity: [
