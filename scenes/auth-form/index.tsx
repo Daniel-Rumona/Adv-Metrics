@@ -96,7 +96,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
                     }}
                 >
                     <Typography variant="h5" fontWeight="bold">
-                        Welcome to InsightTrack 📊
+                        Welcome to Adv Metrix Media Analytics 📊
                     </Typography>
                     <Typography variant="body2">
                         Monitor your social media performance. Sign up or log in to get started.
