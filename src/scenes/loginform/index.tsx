@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   TextField,
@@ -8,13 +8,22 @@ import {
   List,
   ListItem,
   ListItemText,
-  IconButton
+  IconButton,
+  Paper
 } from '@mui/material'
 import { Edit, Delete } from '@mui/icons-material'
+import { db, auth } from '../../firebase/firebaseConfig'
+import { doc, setDoc } from 'firebase/firestore'
+import { onAuthStateChanged } from 'firebase/auth'
+import { v4 as uuidv4 } from 'uuid'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
+import InputAdornment from '@mui/material/InputAdornment'
+import QuantLogo from '../../assets/QuantilytixO.png'
 
 interface Platform {
-  id: number
+  id: string
   name: string
+  handle: string
   password: string
 }
 
@@ -30,61 +39,56 @@ interface RegistrationFormProps {
 const RegistrationForm: React.FC<RegistrationFormProps> = ({ onLogin }) => {
   const [formData, setFormData] = useState({
     companyName: '',
-    email: '',
-    password: '',
     contactNumber: ''
   })
-
   const [platforms, setPlatforms] = useState<Platform[]>([])
-  const [platformInput, setPlatformInput] = useState({ name: '', password: '' })
+  const [platformInput, setPlatformInput] = useState({ name: '', handle: '', password: '' })
   const [competitors, setCompetitors] = useState<Item[]>([])
   const [competitorInput, setCompetitorInput] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+// Toggle handler
+  const togglePasswordVisibility = () => setShowPassword(prev => !prev)
   const [currentEdit, setCurrentEdit] = useState<Platform | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (user) setUserId(user.uid)
+      else setUserId(null)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handlePlatformChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target
+  const handlePlatformChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
     setPlatformInput(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleCompetitorChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setCompetitorInput(event.target.value)
-  }
-
   const handleAddPlatform = () => {
-    if (!platformInput.name.trim() || !platformInput.password.trim()) return
-
-    const newPlatform: Platform = {
-      id: Date.now(),
-      name: platformInput.name.trim(),
-      password: platformInput.password.trim()
-    }
-
+    const { name, handle, password } = platformInput
+    if (!name.trim() || !handle.trim() || !password.trim()) return
+    const newPlatform: Platform = { id: uuidv4(), name, handle, password }
     setPlatforms(prev => [...prev, newPlatform])
-    setPlatformInput({ name: '', password: '' })
+    setPlatformInput({ name: '', handle: '', password: '' })
   }
 
   const handleAddCompetitor = () => {
     if (!competitorInput.trim()) return
-
-    const newCompetitor: Item = { id: Date.now(), name: competitorInput.trim() }
-    setCompetitors(prev => [...prev, newCompetitor])
+    setCompetitors(prev => [...prev, { id: Date.now(), name: competitorInput.trim() }])
     setCompetitorInput('')
   }
 
-  const handleDeletePlatform = (id: number) => {
-    setPlatforms(prev => prev.filter(platform => platform.id !== id))
+  const handleDeletePlatform = (id: string) => {
+    setPlatforms(prev => prev.filter(p => p.id !== id))
   }
 
   const handleDeleteCompetitor = (id: number) => {
-    setCompetitors(prev => prev.filter(competitor => competitor.id !== id))
+    setCompetitors(prev => prev.filter(c => c.id !== id))
   }
 
   const handleEditPlatform = (platform: Platform) => {
@@ -92,236 +96,153 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onLogin }) => {
     setModalOpen(true)
   }
 
+  const handleCompetitorChange = (
+      event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setCompetitorInput(event.target.value)
+  }
+
   const handleSaveEdit = () => {
     if (currentEdit) {
-      setPlatforms(prev =>
-        prev.map(platform =>
-          platform.id === currentEdit.id ? currentEdit : platform
-        )
-      )
+      setPlatforms(prev => prev.map(p => (p.id === currentEdit.id ? currentEdit : p)))
       setModalOpen(false)
       setCurrentEdit(null)
     }
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault()
-    console.log('Form Data:', {
-      ...formData,
-      platforms,
-      competitors
-    })
-    onLogin() // Call the login handler
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!userId) return alert("User not logged in.")
+    try {
+      await setDoc(doc(db, 'users', userId), {
+        companyName: formData.companyName,
+        contactNumber: formData.contactNumber,
+        platforms,
+        competitors
+      })
+      onLogin()
+    } catch (error) {
+      alert('Failed to register. Please try again.')
+    }
   }
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        px: 2,
-        backgroundColor: 'background.default'
-      }}
-    >
       <Box
-        sx={{
-          maxWidth: 600,
-          width: '100%',
-          p: 3,
-          boxShadow: 3,
-          borderRadius: 2,
-          backgroundColor: 'background.paper',
-          mt: 3,
-          mb: 3
-        }}
+          sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'linear-gradient(to right, #0f2027, #203a43, #2c5364)',
+            position: 'relative'
+          }}
       >
-        <Typography variant='h5' textAlign='center' mb={3}>
-          Social Media Analytics Registration
-        </Typography>
-        <form onSubmit={handleSubmit}>
-          {/* Basic Information */}
-          <TextField
-            fullWidth
-            label='Company Name'
-            name='companyName'
-            variant='outlined'
-            margin='normal'
-            required
-            value={formData.companyName}
-            onChange={handleChange}
-          />
-          <TextField
-            fullWidth
-            label='Email'
-            name='email'
-            type='email'
-            variant='outlined'
-            margin='normal'
-            required
-            value={formData.email}
-            onChange={handleChange}
-          />
-          <TextField
-            fullWidth
-            label='Password'
-            name='password'
-            type='password'
-            variant='outlined'
-            margin='normal'
-            required
-            value={formData.password}
-            onChange={handleChange}
-          />
-          <TextField
-            fullWidth
-            label='Contact Number'
-            name='contactNumber'
-            type='tel'
-            variant='outlined'
-            margin='normal'
-            value={formData.contactNumber}
-            onChange={handleChange}
-          />
+        <Box
+            sx={{
+              width: '100%',
+              maxWidth: 600,
+              p: 4,
+              borderRadius: 4,
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#fff',
+              zIndex: 2
+            }}
+        >
+          <Paper sx={{ mb: 4, p: 2, background: 'linear-gradient(90deg, #00c6ff, #0072ff)', borderRadius: 2, color: 'white', textAlign: 'center' }}>
+            <Typography variant='h5' fontWeight='bold'>Complete Your Business Setup</Typography>
+            <Typography variant='body2'>Add your company details, platforms and competitors to start tracking performance.</Typography>
+          </Paper>
 
-          {/* Platforms */}
-          <Typography variant='h6' mt={2}>
-            Platforms
-          </Typography>
-          <Box display='flex' gap={1} mb={2}>
-            <TextField
-              label='Platform Name'
-              name='name'
-              value={platformInput.name}
-              onChange={handlePlatformChange}
-              placeholder='Enter Platform Name'
-            />
-            <TextField
-              label='Password'
-              name='password'
-              value={platformInput.password}
-              onChange={handlePlatformChange}
-              placeholder='Enter Password'
-            />
-            <Button onClick={handleAddPlatform} variant='contained'>
-              Add
-            </Button>
-          </Box>
-          <List>
-            {platforms.map(platform => (
-              <ListItem
-                key={platform.id}
-                sx={{ display: 'flex', justifyContent: 'space-between' }}
-              >
-                <ListItemText
-                  primary={`${platform.name} (Password: ${platform.password})`}
-                />
-                <Box>
-                  <IconButton onClick={() => handleEditPlatform(platform)}>
-                    <Edit />
-                  </IconButton>
-                  <IconButton onClick={() => handleDeletePlatform(platform.id)}>
-                    <Delete />
-                  </IconButton>
-                </Box>
-              </ListItem>
-            ))}
-          </List>
+          <form onSubmit={handleSubmit}>
+            <TextField fullWidth label='Company Name' name='companyName' value={formData.companyName} onChange={handleChange} margin='normal' variant='filled' InputProps={{ style: { color: 'white' } }} />
+            <TextField fullWidth label='Contact Number' name='contactNumber' value={formData.contactNumber} onChange={handleChange} margin='normal' variant='filled' InputProps={{ style: { color: 'white' } }} />
 
-          {/* Competitors */}
-          <Typography variant='h6' mt={2}>
-            Competitors
-          </Typography>
-          <Box display='flex' gap={1} mb={2}>
-            <TextField
-              label='Competitor Name'
-              value={competitorInput}
-              onChange={handleCompetitorChange}
-              placeholder='Enter Competitor Name'
-            />
-            <Button onClick={handleAddCompetitor} variant='contained'>
-              Add
-            </Button>
-          </Box>
-          <List>
-            {competitors.map(competitor => (
-              <ListItem
-                key={competitor.id}
-                sx={{ display: 'flex', justifyContent: 'space-between' }}
-              >
-                <ListItemText primary={competitor.name} />
-                <IconButton
-                  onClick={() => handleDeleteCompetitor(competitor.id)}
-                >
-                  <Delete />
-                </IconButton>
-              </ListItem>
-            ))}
-          </List>
-
-          {/* Edit Modal */}
-          <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
-            <Box
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 400,
-                bgcolor: 'background.paper',
-                p: 4,
-                boxShadow: 24,
-                borderRadius: 2
-              }}
-            >
-              <Typography variant='h6' mb={2}>
-                Edit Platform
-              </Typography>
+            <Typography variant='h6' mt={2}>Platforms</Typography>
+            <Box display="flex" gap={1} mb={2} alignItems="center">
               <TextField
-                fullWidth
-                label='Platform Name'
-                value={currentEdit?.name || ''}
-                onChange={e =>
-                  setCurrentEdit(prev =>
-                    prev ? { ...prev, name: e.target.value } : null
-                  )
-                }
+                  label="Name"
+                  name="name"
+                  value={platformInput.name}
+                  onChange={handlePlatformChange}
+                  placeholder="e.g. Facebook"
+                  size="small"
+                  sx={{ flex: 1 }}
               />
               <TextField
-                fullWidth
-                label='Platform Password'
-                value={currentEdit?.password || ''}
-                sx={{ mt: 2 }}
-                onChange={e =>
-                  setCurrentEdit(prev =>
-                    prev ? { ...prev, password: e.target.value } : null
-                  )
-                }
+                  label="Handle"
+                  name="handle"
+                  value={platformInput.handle}
+                  onChange={handlePlatformChange}
+                  placeholder="@yourHandle"
+                  size="small"
+                  sx={{ flex: 1 }}
               />
+              <TextField
+                  label="Password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={platformInput.password}
+                  onChange={handlePlatformChange}
+                  placeholder="Enter Password"
+                  size="small"
+                  sx={{ flex: 1 }}
+                  InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={togglePasswordVisibility} edge="end">
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                    )
+                  }}
+              />
+
               <Button
-                variant='contained'
-                sx={{ mt: 2 }}
-                fullWidth
-                onClick={handleSaveEdit}
+                  onClick={handleAddPlatform}
+                  variant="contained"
+                  sx={{ whiteSpace: 'nowrap', height: '40px' }}
               >
-                Save
+                Add
               </Button>
             </Box>
-          </Modal>
 
-          <Button
-            type='submit'
-            variant='contained'
-            color='primary'
-            fullWidth
-            sx={{ mt: 3 }}
-          >
-            Register
-          </Button>
-        </form>
+            <List>
+              {platforms.map(platform => (
+                  <ListItem key={platform.id} sx={{ justifyContent: 'space-between' }}>
+                    <ListItemText primary={`${platform.name} (${platform.handle})`} secondary={`Password: ${platform.password}`} />
+                    <Box>
+                      <IconButton onClick={() => handleEditPlatform(platform)}><Edit /></IconButton>
+                      <IconButton onClick={() => handleDeletePlatform(platform.id)}><Delete /></IconButton>
+                    </Box>
+                  </ListItem>
+              ))}
+            </List>
+
+            <Typography variant='h6' mt={2}>Competitors</Typography>
+            <Box display='flex' gap={1} mb={2}>
+              <TextField label='Competitor Name' value={competitorInput} onChange={handleCompetitorChange} placeholder='e.g. Rival Company' />
+              <Button onClick={handleAddCompetitor} variant='contained'>Add</Button>
+            </Box>
+            <List>
+              {competitors.map(competitor => (
+                  <ListItem key={competitor.id} sx={{ justifyContent: 'space-between' }}>
+                    <ListItemText primary={competitor.name} />
+                    <IconButton onClick={() => handleDeleteCompetitor(competitor.id)}><Delete /></IconButton>
+                  </ListItem>
+              ))}
+            </List>
+
+            <Button type='submit' variant='contained' fullWidth sx={{ mt: 3 }}>Register</Button>
+          </form>
+        </Box>
+
+        <Box sx={{ position: 'absolute', bottom: 20, right: 30, zIndex: 1 }}>
+          <img src={QuantLogo} alt='QuantLogo' style={{ width: 120, opacity: 0.85 }} />
+        </Box>
       </Box>
-    </Box>
   )
 }
 
